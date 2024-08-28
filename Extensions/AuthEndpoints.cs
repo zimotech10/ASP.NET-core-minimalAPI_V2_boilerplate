@@ -22,6 +22,7 @@ public static class AuthEndpoints
 
     private static async Task<IResult> Register(
         UserManager<Users> userManager,
+        RoleManager<IdentityRole> roleManager,
         RegisterModel model)
     {
         var user = new Users
@@ -36,11 +37,21 @@ public static class AuthEndpoints
         };
 
         var result = await userManager.CreateAsync(user, model.Password);
-        if (result.Succeeded)
+        if (!result.Succeeded)
         {
-            return Results.Ok("User registered successfully");
+            return Results.BadRequest(result.Errors);
         }
-        return Results.BadRequest(result.Errors);
+
+        // Assign role to the user
+        var role = model.Role ?? "Client"; // Default to "Client" if no role is provided
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            return Results.BadRequest($"Role '{role}' does not exist.");
+        }
+
+        await userManager.AddToRoleAsync(user, role);
+
+        return Results.Ok("User registered successfully with role " + role);
     }
 
     private static async Task<IResult> Login(
