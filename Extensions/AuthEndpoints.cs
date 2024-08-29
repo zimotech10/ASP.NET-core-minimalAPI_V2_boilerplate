@@ -54,7 +54,8 @@ public static class AuthEndpoints
 
         await userManager.AddToRoleAsync(user, role);
 
-        return Results.Ok("User registered successfully with role " + role);
+        // Return success message with the new user's ID
+        return Results.Ok(new { Message = "User registered successfully with role " + role, UserId = user.Id });
     }
 
     private static async Task<IResult> Login(
@@ -99,7 +100,9 @@ public static class AuthEndpoints
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private static async Task<IResult> UploadAvatar(IFormFile avatarFile)
+    private static async Task<IResult> UploadAvatar(IFormFile avatarFile, UserManager<Users> userManager,
+    ApplicationDbContext dbContext,
+    string userId) // Pass userId to identify the user
     {
         if (avatarFile == null || avatarFile.Length == 0)
         {
@@ -130,6 +133,27 @@ public static class AuthEndpoints
         {
             await avatarFile.CopyToAsync(stream);
         }
+
+        // Update user's avatar path in the database
+        var user = await userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            return Results.NotFound("User not found.");
+        }
+
+        user.PhotoUrl = $"/uploads/{fileName}";
+
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)   //If operation is failed delete uploaded file
+        {
+            // Handle update failure (rollback file creation, etc.)
+            File.Delete(filePath);
+            return Results.BadRequest(result.Errors);
+        }
+
+        // Save changes to the database
+        await dbContext.SaveChangesAsync();
+
 
         return Results.Ok(new { FilePath = $"/uploads/{fileName}" });
     }
