@@ -7,4 +7,5 @@ public class Users : IdentityUser
     public required string Country { get; set; }
     public required string Bio { get; set; }
     public required string BioTitle { get; set; }
+    public string? PhotoUrl { get; set; }
 }
