@@ -5,9 +5,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.FileProviders;
+
 
 var builder = WebApplication.CreateBuilder(args);
-
 //configure services to DI container
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -45,7 +46,7 @@ builder.Services.AddCors(options =>
                       {
                           policy.WithOrigins("http://example.com",
                                               "http://www.contoso.com",
-                                              "http://192.168.11.21:3001").AllowAnyHeader().AllowAnyMethod();
+                                              "http://192.168.11.17").AllowAnyHeader().AllowAnyMethod();
                       });
 });
 
@@ -98,6 +99,27 @@ var app = builder.Build();
 await SeedRoles(app.Services);
 
 
+
+// Create the uploads directory if it does not exist
+var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+if (!Directory.Exists(uploadsFolder))
+{
+    Directory.CreateDirectory(uploadsFolder);
+}
+
+
+// Configure to serve static files from the 'uploads' folder
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "uploads")),
+    RequestPath = "/uploads"
+});
+
+//Allow cors policy
+app.UseCors(MyAllowSpecificOrigins);
+
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -114,7 +136,6 @@ app.UseAuthorization();
 
 // Use endpoints from the extension method
 app.MapAuthEndpoints();
-
 
 app.MapGet("/", () => "Hello World!");
 
